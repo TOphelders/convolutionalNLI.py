@@ -13,14 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 
-"""A very simple MNIST classifier.
-
-See extensive documentation at
-http://tensorflow.org/tutorials/mnist/beginners/index.md
-"""
-from __future__ import absolute_import
-from __future__ import division
-
 import argparse
 import sys
 
@@ -28,7 +20,7 @@ import tensorflow as tf
 
 FLAGS = None
 
-dictionaries = ['english', 'german', 'latin', 'esperanto']
+dictionaries = ['english', 'latin']#, 'esperanto', 'german']
 file_ext = '.txt'
 
 def read_data():
@@ -42,7 +34,7 @@ def read_data():
                 for j in range(10 - len(characters)):
                     characters.append(0)
                 data.append(characters)
-                language = [0 for _ in range(4)]
+                language = [0 for _ in range(len(dictionaries))]
                 language[i] = 1
                 labels.append(language)
     return data, labels
@@ -60,9 +52,9 @@ def conv1d(x, W):
     return tf.nn.conv1d(x, W, stride=1, padding='SAME')
 
 """
-def max_pool_2x2(x):
-    return tf.nn.max_pool(x, ksize=[1, 2, 2, 1],
-                          strides=[1, 2, 2, 1], padding='SAME')
+def avg_pool(x):
+    return tf.nn.avg_pooling1d(x, ksize=[1, 2, 2, 1],
+                               strides=[1, 2, 2, 1], padding='SAME')
 """
 
 def main(_):
@@ -71,10 +63,10 @@ def main(_):
 
     # expected word size of 10 letters max
     x = tf.placeholder(tf.float32, [None, 10])
-    y_ = tf.placeholder(tf.float32, [None, 4])
+    y_ = tf.placeholder(tf.float32, [None, len(dictionaries)])
 
     # first convolution layer
-    W_conv1 = weight_variable([3, 1, 32])
+    W_conv1 = weight_variable([2, 1, 32])
     b_conv1 = bias_variable([32])
 
     x_image = tf.reshape(x, [-1,10,1])
@@ -101,15 +93,14 @@ def main(_):
     h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
 
     # readout layer (11 word inputs to 4 languages)
-    W_fc2 = weight_variable([10, 4])
-    b_fc2 = bias_variable([4])
+    W_fc2 = weight_variable([10, len(dictionaries)])
+    b_fc2 = bias_variable([len(dictionaries)])
 
     # output function
     y_conv = tf.matmul(h_fc1_drop, W_fc2) + b_fc2
 
-    # globali variable initialization
+    # session
     sess = tf.InteractiveSession()
-    tf.global_variables_initializer().run()
 
     # loss function
     cross_entropy = tf.reduce_mean(
@@ -129,28 +120,37 @@ def main(_):
     input_labels = tf.constant(raw_labels)
     word, language = tf.train.slice_input_producer(
             [input_data, input_labels],
+            num_epochs=30,
             shuffle=True)
+    sess.run(tf.local_variables_initializer())
 
     # create batches
-    batch = tf.train.batch([word, language], 50)
+    batch = tf.train.batch([word, language], 50, allow_smaller_final_batch=True)
+
 
     # start input threads
     coord = tf.train.Coordinator()
     threads = tf.train.start_queue_runners(sess=sess, coord=coord)
 
-    #for i in 100:
-    words, languages = sess.run([batch[0], batch[1]])
-    train_step.run(feed_dict={x: words, y_: languages, keep_prob: 0.5})
-    """
-    if i%50 == 0:
-        train_accuracy = accuracy.eval(feed_dict={
-            x:batch[0], y_: batch[1], keep_prob: 1.0})
-        print("step %d, training accuracy %g"%(i, train_accuracy))
-    """
-    """
-    train_accuracy = accuracy.eval(feed_dict={
-        x:words[0], y_: labels[0], keep_prob: 1.0})
-    """
+    i = 0
+    try:
+        while not coord.should_stop():
+            words, languages = sess.run([batch[0], batch[1]])
+            if i%100 == 0:
+                train_accuracy = accuracy.eval(feed_dict={
+                    x:words, y_: languages, keep_prob: 1.0})
+                print(train_accuracy)
+            else:
+                train_step.run(feed_dict={x: words, y_: languages, keep_prob: 0.5})
+            i += 1
+    except tf.errors.OutOfRangeError:
+        print('Done training -- epoch limit reached')
+    finally:
+        coord.request_stop()
+
+    #exit
+    coord.join(threads)
+    sess.close()
 
     """
     print("test accuracy %g"%accuracy.eval(feed_dict={
