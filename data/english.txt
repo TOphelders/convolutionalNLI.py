@@ -33,7 +33,7 @@ april
 wood
 play
 cool
-didn't
+didnt
 old
 fixed
 choice
@@ -58,7 +58,7 @@ title
 mention
 luck
 expense
-wasn't
+wasnt
 common
 itself
 belief
@@ -73,7 +73,7 @@ century
 frame
 formal
 naturally
-he'd
+hed
 fire
 entirely
 evil
@@ -146,7 +146,7 @@ band
 sharp
 department
 surface
-they're
+theyre
 aircraft
 two
 destroy
@@ -198,7 +198,7 @@ along
 wanted
 stations
 vocational
-i'd
+id
 jazz
 men
 anyone
@@ -308,7 +308,7 @@ sources
 trying
 until
 nothing
-couldn't
+couldnt
 join
 justice
 lower
@@ -382,7 +382,7 @@ sound
 measured
 dozen
 far
-i'm
+im
 minutes
 door
 remember
@@ -452,14 +452,14 @@ realize
 their
 ideas
 confuse
-can't
+cant
 selected
 load
 marked
 blood
 completion
 adopt
-i'll
+ill
 occurred
 seize
 game
@@ -806,7 +806,7 @@ nation
 writer
 fix
 audience
-doesn't
+doesnt
 town
 election
 dine

@@ -30,8 +30,12 @@ def read_data():
         lines = [line.rstrip('\n') for line in open('./data/' + dictionaries[i] + file_ext)]
         with open('./data/' + dictionaries[i] + file_ext) as fp:
             for line in fp:
-                characters = [ord(char) - 96 for char in line.rstrip('\n')]
-                for j in range(10 - len(characters)):
+                characters = []
+                for char in line.rstrip('\n'):
+                    formatted = [0 for _ in range(26)]
+                    formatted[ord(char) - 97] = 1
+                    characters.extend(formatted)
+                for j in range(260 - len(characters)):
                     characters.append(0)
                 data.append(characters)
                 language = [0 for _ in range(len(dictionaries))]
@@ -49,43 +53,43 @@ def bias_variable(shape):
 
 # convolve with a stride of 1 (increment by 1 character), same output size
 def conv1d(x, W):
-    return tf.nn.conv1d(x, W, stride=1, padding='SAME')
+    return tf.nn.conv1d(x, W, stride=26, padding='SAME')
 
-"""
+def conv2d(x, W):
+    return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
+
 def avg_pool(x):
-    return tf.nn.avg_pooling1d(x, ksize=[1, 2, 2, 1],
-                               strides=[1, 2, 2, 1], padding='SAME')
-"""
+    return tf.layers.average_pooling1d(x, 78, 1, padding='SAME')
 
 def main(_):
     # Import data
     raw_data, raw_labels = read_data()
 
     # expected word size of 10 letters max
-    x = tf.placeholder(tf.float32, [None, 10])
+    x = tf.placeholder(tf.float32, [None, 260])
     y_ = tf.placeholder(tf.float32, [None, len(dictionaries)])
 
     # first convolution layer
-    W_conv1 = weight_variable([2, 1, 32])
+    W_conv1 = weight_variable([78, 1, 1, 32])
     b_conv1 = bias_variable([32])
 
-    x_image = tf.reshape(x, [-1,10,1])
+    x_image = tf.reshape(x, [-1, 26, 10, 1])
 
-    h_conv1 = tf.nn.relu(conv1d(x_image, W_conv1) + b_conv1)
-    #h_pool1 = max_pool_2x2(h_conv1)
+    h_conv1 = tf.nn.relu(conv2d(x_image, W_conv1) + b_conv1)
+    #h_pool1 = avg_pool(h_conv1)
 
     # second convolution
-    W_conv2 = weight_variable([3, 32, 64])
+    W_conv2 = weight_variable([78, 1, 32, 64])
     b_conv2 = bias_variable([64])
 
-    h_conv2 = tf.nn.relu(conv1d(h_conv1, W_conv2) + b_conv2)
-    #h_pool2 = max_pool_2x2(h_conv2)
+    h_conv2 = tf.nn.relu(conv2d(h_conv1, W_conv2) + b_conv2)
+    #h_pool2 = avg_pool(h_conv2)
 
     # fully connected layer
-    W_fc1 = weight_variable([10 * 64, 10])
-    b_fc1 = bias_variable([10])
+    W_fc1 = weight_variable([260 * 64, 260])
+    b_fc1 = bias_variable([260])
 
-    h_pool2_flat = tf.reshape(h_conv2, [-1, 10*64])
+    h_pool2_flat = tf.reshape(h_conv2, [-1, 260 * 64])
     h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
 
     # dropout
@@ -93,7 +97,7 @@ def main(_):
     h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
 
     # readout layer (11 word inputs to 4 languages)
-    W_fc2 = weight_variable([10, len(dictionaries)])
+    W_fc2 = weight_variable([260, len(dictionaries)])
     b_fc2 = bias_variable([len(dictionaries)])
 
     # output function
@@ -151,11 +155,6 @@ def main(_):
     #exit
     coord.join(threads)
     sess.close()
-
-    """
-    print("test accuracy %g"%accuracy.eval(feed_dict={
-        x: data, y_: labels, keep_prob: 1.0}))
-    """
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
