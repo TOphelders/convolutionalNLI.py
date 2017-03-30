@@ -20,15 +20,15 @@ import tensorflow as tf
 
 FLAGS = None
 
-dictionaries = ['english', 'latin']#, 'esperanto', 'german']
+dictionaries = ['english', 'esperanto', 'german', 'norsk']
+test_dictionaries = ['test_english', 'test_esperanto', 'test_german', 'test_norsk']
 file_ext = '.txt'
 
-def read_data():
+def read_data(languages):
     data = []
     labels = []
-    for i in range(len(dictionaries)):
-        lines = [line.rstrip('\n') for line in open('./data/' + dictionaries[i] + file_ext)]
-        with open('./data/' + dictionaries[i] + file_ext) as fp:
+    for i in range(len(languages)):
+        with open('./data/' + languages[i] + file_ext) as fp:
             for line in fp:
                 characters = []
                 for char in line.rstrip('\n'):
@@ -38,7 +38,7 @@ def read_data():
                 for j in range(260 - len(characters)):
                     characters.append(0)
                 data.append(characters)
-                language = [0 for _ in range(len(dictionaries))]
+                language = [0 for _ in range(len(languages))]
                 language[i] = 1
                 labels.append(language)
     return data, labels
@@ -52,18 +52,13 @@ def bias_variable(shape):
     return tf.Variable(initial)
 
 # convolve with a stride of 1 (increment by 1 character), same output size
-def conv1d(x, W):
-    return tf.nn.conv1d(x, W, stride=26, padding='SAME')
-
 def conv2d(x, W):
     return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
 
-def avg_pool(x):
-    return tf.layers.average_pooling1d(x, 78, 1, padding='SAME')
-
 def main(_):
     # Import data
-    raw_data, raw_labels = read_data()
+    raw_data, raw_labels = read_data(dictionaries)
+    raw_test_data, raw_test_labels = read_data(test_dictionaries)
 
     # expected word size of 10 letters max
     x = tf.placeholder(tf.float32, [None, 260])
@@ -76,14 +71,12 @@ def main(_):
     x_image = tf.reshape(x, [-1, 26, 10, 1])
 
     h_conv1 = tf.nn.relu(conv2d(x_image, W_conv1) + b_conv1)
-    #h_pool1 = avg_pool(h_conv1)
 
     # second convolution
     W_conv2 = weight_variable([78, 1, 32, 64])
     b_conv2 = bias_variable([64])
 
     h_conv2 = tf.nn.relu(conv2d(h_conv1, W_conv2) + b_conv2)
-    #h_pool2 = avg_pool(h_conv2)
 
     # fully connected layer
     W_fc1 = weight_variable([260 * 64, 260])
@@ -124,13 +117,12 @@ def main(_):
     input_labels = tf.constant(raw_labels)
     word, language = tf.train.slice_input_producer(
             [input_data, input_labels],
-            num_epochs=30,
+            num_epochs=5,
             shuffle=True)
     sess.run(tf.local_variables_initializer())
 
     # create batches
     batch = tf.train.batch([word, language], 50, allow_smaller_final_batch=True)
-
 
     # start input threads
     coord = tf.train.Coordinator()
@@ -142,13 +134,16 @@ def main(_):
             words, languages = sess.run([batch[0], batch[1]])
             if i%100 == 0:
                 train_accuracy = accuracy.eval(feed_dict={
-                    x:words, y_: languages, keep_prob: 1.0})
-                print(train_accuracy)
+                    x: words, y_: languages, keep_prob: 1.0})
+                print('train accuracy - batch ' + str(i) + ': ' + str(train_accuracy))
             else:
                 train_step.run(feed_dict={x: words, y_: languages, keep_prob: 0.5})
             i += 1
     except tf.errors.OutOfRangeError:
         print('Done training -- epoch limit reached')
+        test_accuracy = accuracy.eval(feed_dict={
+            x: raw_test_data, y_: raw_test_labels, keep_prob: 1.0})
+        print(test_accuracy)
     finally:
         coord.request_stop()
 
